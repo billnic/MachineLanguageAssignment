@@ -6,13 +6,13 @@ Sept 20, 2015
 library(knitr);library(ggplot2);library(questionr);library(caret) ; library(kernlab)
 opts_chunk$set(message = FALSE,echo = TRUE, warning=FALSE)
 ```
-## Synopsis ##  
+## Synopsis   
 
 A random forest and a gradient boosting machine learning models were built to predict whether weightlifters are performing barbell lifts correctly. The models were trained on data gathered from six individuals wearing body accelerometers and doing barbell lifts in five different ways, one correctly and four incorrectly. The final model is tested against a validation dataset consisting of twenty test cases. The goal is to predict in which of the five different ways the lift can be performed each test falls in.
 
 More information is available from the website: http://groupware.les.inf.puc-rio.br/har 
 
-## Loading the data ##  
+## Loading the data 
 
 There are two datasets to download and read into the program. The second dataset, pml-testing, is renamed pml_validate to avoid confusing it with the testing dataset created from partitioning the pml-training dataset.
 
@@ -40,11 +40,11 @@ cat("Validation Dataset Dimension:",dim(pml_validate))
 ## Validation Dataset Dimension: 20 160
 ```
 
-## Preprocess Data ##  
+## Preprocess Data  
 
 Thera are 160 variables in the dataset including the response variable, classe, coded as A, B, C, D, E where A is the lift performed correctly. The model may use any or all of the 159 predictor variables.
 
-### Data Cleaning ###
+### Data Cleaning 
 
 There are 75 variables eliminated because 98% of their values are either missing or invalid. These entries were read as NA strings when the dataset was loaded. In addition, the first seven columns are also eliminated because they are related to the person doing the lift and the time of the measurement and are not accelerometer variables measuring movement.  
 The remaining 52 predictor variables were checked for unique values and there were no zero variance predictors. 
@@ -71,7 +71,7 @@ cat("Number of near zero covariates:",sum(nsv[,c(3,4)]==T))
 ## Number of near zero covariates: 0
 ```
 
-### Transforming Predictors ###
+### Transforming Predictors 
 
 Virtually all the predictor variables are quite skewed. The data was first centered and scaled, then a Yeo-Johnson transformation was made, and finally the number of predictors was reduced using principal component analysis. However, each attempt greatly reduced the accuracy of the prediction therefore no transformation was made other than the elimination of the variables with missing values described above. 
 
@@ -88,7 +88,7 @@ testing <- pml_train[-inTrain,]
 rm(pml_train)
 ```
 
-## Modeling ##  
+## Modeling   
 
 A gradient boosted machine model and a forest tree model are selected as they are suited for multi-classification response models. Since these algorithms have high accuracy but are prone to overfitting the training data, a 5-fold repeated cross-validation with 3 repeats resampling scheme is used in both models to reduce the risk of overfitting,. 
 
@@ -98,7 +98,7 @@ set.seed(12345)
 traincntl<-trainControl(method="repeatedcv",number = 5,repeats=3)
 ```
 
-### Gradient Boosted Machine ###  
+### Gradient Boosted Machine   
 
 The Stochastic Gradient Boosting algorithm is applied to the training data and an accuracy of .9626 is achieved after 150 iterations with 3 splits on each tree as illustred in the level plot below.
 
@@ -181,36 +181,36 @@ GBMconfusion
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1386   25    0    0    1
-##          B    4  900   14    4    5
-##          C    4   24  835   23    5
-##          D    1    0    5  775    6
-##          E    0    0    1    2  884
+##          A 1385   18    0    0    0
+##          B    5  913   20    2    5
+##          C    4   18  826   22    5
+##          D    0    0    6  776    9
+##          E    1    0    3    4  882
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.9747          
-##                  95% CI : (0.9699, 0.9789)
+##                Accuracy : 0.9751          
+##                  95% CI : (0.9704, 0.9793)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.968           
-##  Mcnemar's Test P-Value : 3.944e-07       
+##                   Kappa : 0.9685          
+##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9935   0.9484   0.9766   0.9639   0.9811
-## Specificity            0.9926   0.9932   0.9862   0.9971   0.9993
-## Pos Pred Value         0.9816   0.9709   0.9371   0.9848   0.9966
-## Neg Pred Value         0.9974   0.9877   0.9950   0.9930   0.9958
+## Sensitivity            0.9928   0.9621   0.9661   0.9652   0.9789
+## Specificity            0.9949   0.9919   0.9879   0.9963   0.9980
+## Pos Pred Value         0.9872   0.9661   0.9440   0.9810   0.9910
+## Neg Pred Value         0.9971   0.9909   0.9928   0.9932   0.9953
 ## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
-## Detection Rate         0.2826   0.1835   0.1703   0.1580   0.1803
-## Detection Prevalence   0.2879   0.1890   0.1817   0.1605   0.1809
-## Balanced Accuracy      0.9931   0.9708   0.9814   0.9805   0.9902
+## Detection Rate         0.2824   0.1862   0.1684   0.1582   0.1799
+## Detection Prevalence   0.2861   0.1927   0.1784   0.1613   0.1815
+## Balanced Accuracy      0.9939   0.9770   0.9770   0.9808   0.9885
 ```
 
-### Random Forest ###
+### Random Forest 
 
 A random forest is an estimator that fits a number of decision tree classifiers on various sub-samples of the dataset and use averaging to improve the predictive accuracy and control over-fitting. 
 
@@ -274,35 +274,35 @@ RFconfusion
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1395    2    0    0    0
-##          B    0  947    0    0    0
-##          C    0    0  855    3    0
-##          D    0    0    0  801    1
-##          E    0    0    0    0  900
+##          A 1395    1    0    0    0
+##          B    0  948    1    0    0
+##          C    0    0  854    0    0
+##          D    0    0    0  803    0
+##          E    0    0    0    1  901
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.9988          
-##                  95% CI : (0.9973, 0.9996)
+##                Accuracy : 0.9994          
+##                  95% CI : (0.9982, 0.9999)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.9985          
+##                   Kappa : 0.9992          
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            1.0000   0.9979   1.0000   0.9963   0.9989
-## Specificity            0.9994   1.0000   0.9993   0.9998   1.0000
-## Pos Pred Value         0.9986   1.0000   0.9965   0.9988   1.0000
-## Neg Pred Value         1.0000   0.9995   1.0000   0.9993   0.9998
+## Sensitivity            1.0000   0.9989   0.9988   0.9988   1.0000
+## Specificity            0.9997   0.9997   1.0000   1.0000   0.9998
+## Pos Pred Value         0.9993   0.9989   1.0000   1.0000   0.9989
+## Neg Pred Value         1.0000   0.9997   0.9998   0.9998   1.0000
 ## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
-## Detection Rate         0.2845   0.1931   0.1743   0.1633   0.1835
-## Detection Prevalence   0.2849   0.1931   0.1750   0.1635   0.1835
-## Balanced Accuracy      0.9997   0.9989   0.9996   0.9980   0.9994
+## Detection Rate         0.2845   0.1933   0.1741   0.1637   0.1837
+## Detection Prevalence   0.2847   0.1935   0.1741   0.1637   0.1839
+## Balanced Accuracy      0.9999   0.9993   0.9994   0.9994   0.9999
 ```
-## Model Selection ##  
+## Model Selection  
 
 The accuracy and kappa metrics favor the **random forest** fit. To verify this and given that both models were run with the same seed, the caret function resamples is run and the results are illustrated below in a lattice box-and-whisker plot.
 
@@ -339,7 +339,7 @@ bwplot(resamps,main="RandomForest vs Gradient Boosting)")
 
 ![](ml_proj_files/figure-html/selmod-1.png) 
 
-## Model Testing ##  
+## Model Testing   
 
 The random forest model is tested against the 20 test cases stored in pml_validate and is formatted as required by the project submission.
 
@@ -356,7 +356,7 @@ pml_write_files = function(x){
 pml_write_files(answer)
 ```
 
-## References ##
+## References 
 
 [1] https://topepo.github.io/caret/featureselection.html  
 [2] https://topepo.github.io/caret/training.html  
