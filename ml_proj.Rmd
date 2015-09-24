@@ -4,14 +4,13 @@ author: "William F. Nicodemus"
 date: "Sept 20, 2015"
 output:
   html_document:
-    keep_md: true
     toc: yes
 ---
 ```{r global,echo=TRUE,message=FALSE,warning=FALSE}
 library(knitr);library(ggplot2);library(questionr);library(caret) ; library(kernlab)
 opts_chunk$set(message = FALSE,echo = TRUE, warning=FALSE)
 ```
-##Synopsis##  
+## Synopsis ##  
 
 A random forest and a gradient boosting machine learning models were built to predict whether weightlifters are performing barbell lifts correctly. The models were trained on data gathered from six individuals wearing body accelerometers and doing barbell lifts in five different ways, one correctly and four incorrectly. The final model is tested against a validation dataset consisting of twenty test cases. The goal is to predict in which of the five different ways the lift can be performed each test falls in.
 
@@ -33,11 +32,11 @@ cat("Train/Test Dataset Dimension:",dim(pml_train))
 cat("Validation Dataset Dimension:",dim(pml_validate))
 ```
 
-##Preprocess Data##
+## Preprocess Data ##  
 
 Thera are 160 variables in the dataset including the response variable, classe, coded as A, B, C, D, E where A is the lift performed correctly. The model may use any or all of the 159 predictor variables.
 
-###Data Cleaning###
+### Data Cleaning ###
 
 There are 75 variables eliminated because 98% of their values are either missing or invalid. These entries were read as NA strings when the dataset was loaded. In addition, the first seven columns are also eliminated because they are related to the person doing the lift and the time of the measurement and are not accelerometer variables measuring movement.  
 The remaining 52 predictor variables were checked for unique values and there were no zero variance predictors. 
@@ -53,11 +52,11 @@ nsv <- nearZeroVar(pml_train,saveMetrics=TRUE)
 cat("Number of near zero covariates:",sum(nsv[,c(3,4)]==T))
 ```
 
-###Transforming Predictors###
+### Transforming Predictors ###
 
 Virtually all the predictor variables are quite skewed. The data was first centered and scaled, then a Yeo-Johnson transformation was made, and finally the number of predictors was reduced using principal component analysis. However, each attempt greatly reduced the accuracy of the prediction therefore no transformation was made other than the elimination of the variables with missing values described above. 
 
-###Data Splitting###
+### Data Splitting ###
 
 The data is split into a training dataset containing 75% of the rows and a testing dataset containing the remaining 25%. 
 
@@ -70,7 +69,7 @@ testing <- pml_train[-inTrain,]
 rm(pml_train)
 ```
 
-##Modeling##  
+## Modeling ##  
 
 A gradient boosted machine model and a forest tree model are selected as they are suited for multi-classification response models. Since these algorithms have high accuracy but are prone to overfitting the training data, a 5-fold repeated cross-validation with 3 repeats resampling scheme is used in both models to reduce the risk of overfitting,. 
 
@@ -79,7 +78,7 @@ set.seed(12345)
 traincntl<-trainControl(method="repeatedcv",number = 5,repeats=3)
 ```
 
-###Gradient Boosted Machine###  
+### Gradient Boosted Machine ###  
 
 The Stochastic Gradient Boosting algorithm is applied to the training data and an accuracy of .9626 is achieved after 150 iterations with 3 splits on each tree as illustred in the level plot below.
 
@@ -106,7 +105,7 @@ GBMconfusion <- confusionMatrix(GBMpredict, testing$classe)
 GBMconfusion
 ```
 
-###Random Forest###
+### Random Forest ###
 
 A random forest is an estimator that fits a number of decision tree classifiers on various sub-samples of the dataset and use averaging to improve the predictive accuracy and control over-fitting. 
 
@@ -133,7 +132,7 @@ RFpredict <- predict(RFfit, testing)
 RFconfusion <- confusionMatrix(RFpredict, testing$classe)
 RFconfusion
 ```
-##Model Selection##
+## Model Selection ##  
 
 The accuracy and kappa metrics favor the **random forest** fit. To verify this and given that both models were run with the same seed, the caret function resamples is run and the results are illustrated below in a lattice box-and-whisker plot.
 
@@ -146,7 +145,7 @@ bwplot(resamps,main="RandomForest vs Gradient Boosting)")
 
 ```
 
-##Model Testing##  
+## Model Testing ##  
 
 The random forest model is tested against the 20 test cases stored in pml_validate and is formatted as required by the project submission.
 
@@ -163,7 +162,7 @@ pml_write_files(answer)
 
 ```
 
-##References##
+## References ##
 
 [1] https://topepo.github.io/caret/featureselection.html  
 [2] https://topepo.github.io/caret/training.html  
