@@ -1,0 +1,170 @@
+---
+title: "Practical Machine Learning Project"
+author: "William F. Nicodemus"
+date: "Sept 20, 2015"
+output:
+  html_document:
+    keep_md: true
+    toc: yes
+---
+```{r global,echo=TRUE,message=FALSE,warning=FALSE}
+library(knitr);library(ggplot2);library(questionr);library(caret) ; library(kernlab)
+opts_chunk$set(message = FALSE,echo = TRUE, warning=FALSE)
+```
+##Synopsis##  
+
+A random forest and a gradient boosting machine learning models were built to predict whether weightlifters are performing barbell lifts correctly. The models were trained on data gathered from six individuals wearing body accelerometers and doing barbell lifts in five different ways, one correctly and four incorrectly. The final model is tested against a validation dataset consisting of twenty test cases. The goal is to predict in which of the five different ways the lift can be performed each test falls in.
+
+More information is available from the website: http://groupware.les.inf.puc-rio.br/har 
+
+## Loading the data ##  
+
+There are two datasets to download and read into the program. The second dataset, pml-testing, is renamed pml_validate to avoid confusing it with the testing dataset created from partitioning the pml-training dataset.
+
+```{r download}
+setwd("C:/Users/william/Documents/R/ML")
+fileUrl1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+# download.file(fileUrl1, destfile = "pml-training.csv")
+fileUrl2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+# download.file(fileUrl2, destfile = "pml-testing.csv")
+pml_train <- read.csv("pml-training.csv",stringsAsFactors = F, na.strings = c("NA", "","#DIV/0!"))
+pml_validate <- read.csv("pml-testing.csv",stringsAsFactors = F, na.strings = c("NA", "","#DIV/0!"))
+cat("Train/Test Dataset Dimension:",dim(pml_train))
+cat("Validation Dataset Dimension:",dim(pml_validate))
+```
+
+##Preprocess Data##
+
+Thera are 160 variables in the dataset including the response variable, classe, coded as A, B, C, D, E where A is the lift performed correctly. The model may use any or all of the 159 predictor variables.
+
+###Data Cleaning###
+
+There are 75 variables eliminated because 98% of their values are either missing or invalid. These entries were read as NA strings when the dataset was loaded. In addition, the first seven columns are also eliminated because they are related to the person doing the lift and the time of the measurement and are not accelerometer variables measuring movement.  
+The remaining 52 predictor variables were checked for unique values and there were no zero variance predictors. 
+
+```{r preprocess_clean}
+ 
+NAfreq<-freq.na(pml_train,names(pml_train))
+NAnames<-rownames(NAfreq[NAfreq[,2]>97,])
+pml_train<-pml_train[,-which(colnames(pml_train) %in% NAnames) ]
+pml_train<-pml_train[,-c(1:7)]
+cat("Train/Test Dataset Dimension:",dim(pml_train))
+nsv <- nearZeroVar(pml_train,saveMetrics=TRUE)
+cat("Number of near zero covariates:",sum(nsv[,c(3,4)]==T))
+```
+
+###Transforming Predictors###
+
+Virtually all the predictor variables are quite skewed. The data was first centered and scaled, then a Yeo-Johnson transformation was made, and finally the number of predictors was reduced using principal component analysis. However, each attempt greatly reduced the accuracy of the prediction therefore no transformation was made other than the elimination of the variables with missing values described above. 
+
+###Data Splitting###
+
+The data is split into a training dataset containing 75% of the rows and a testing dataset containing the remaining 25%. 
+
+```{r preprocess_split}
+ 
+inTrain <- createDataPartition(y=pml_train$classe, p=0.75, list=F)
+training <- pml_train[ inTrain,]
+testing <- pml_train[-inTrain,]
+# training$classe<-as.factor(training$classe)
+rm(pml_train)
+```
+
+##Modeling##  
+
+A gradient boosted machine model and a forest tree model are selected as they are suited for multi-classification response models. Since these algorithms have high accuracy but are prone to overfitting the training data, a 5-fold repeated cross-validation with 3 repeats resampling scheme is used in both models to reduce the risk of overfitting,. 
+
+```{r resampling}
+set.seed(12345)
+traincntl<-trainControl(method="repeatedcv",number = 5,repeats=3)
+```
+
+###Gradient Boosted Machine###  
+
+The Stochastic Gradient Boosting algorithm is applied to the training data and an accuracy of .9626 is achieved after 150 iterations with 3 splits on each tree as illustred in the level plot below.
+
+When predicting on the testing data, the accuracy drops to .9606 thus the expected out-of-sample error is 100-96.06 = **3.94%**. Summing the diagonal elements in the confusion matrix below confirms the predicted accuracy was 96.06% given that 4711 out of a total of 4904 test cases are predicted correctly.
+
+To run the train function on this gradient boosting model and on the random forest model, I have taken advantage of parallel computations from a dual core CPU. The  gradient boosting training took over an hour to run and the random forest took over eight hours. To run the markdown document, the fits for each model was saved in a RDS file and the Rmarkdown paramenter eval is set to false.
+
+```{r gbm,eval=F}
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+set.seed(12345)
+GBMfit <- train(training$classe ~ .,data=training,method="gbm",trControl=traincntl,verbose=F)
+stopCluster(cl)
+detach(package:doParallel)
+saveRDS(GBMfit, "GBMmodel.RDS")
+```
+```{r gbm_results, fig.width=7, fig.height=5,eval=T}
+GBMfit<-readRDS("GBMmodel.RDS")
+plot(GBMfit, plotType = "level")
+GBMfit
+GBMpredict <- predict(GBMfit, testing)
+GBMconfusion <- confusionMatrix(GBMpredict, testing$classe)
+GBMconfusion
+```
+
+###Random Forest###
+
+A random forest is an estimator that fits a number of decision tree classifiers on various sub-samples of the dataset and use averaging to improve the predictive accuracy and control over-fitting. 
+
+The in-sample accuracy of this model increases to 99.37% when the number of features randomly selected for each tree is optimized at mtry=27. The accuracy and kappa metrics are ploted below.
+
+The out-of-sample accuracy from the confusion matrix of predictors increases to 99.37% and the out-of-sample error is 31 rows out of 4904 or **.63%**.
+
+```{r rf, eval=F}
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+set.seed(12345)                      
+RFfit <- train(classe ~., data=training, method="rf", trControl=traincntl,prox=T)
+stopCluster(cl)
+detach(package:doParallel)
+saveRDS(RFfit, "RFmodel.RDS")
+```
+```{r rf_results,eval=T,fig.width=12, fig.height=5}
+require(gridExtra)
+RFfit<-readRDS("RFmodel.RDS")
+grid.arrange(plot(RFfit,metric = "Accuracy"), plot(RFfit, metric = "Kappa"), ncol=2)
+RFfit
+RFpredict <- predict(RFfit, testing)
+RFconfusion <- confusionMatrix(RFpredict, testing$classe)
+RFconfusion
+```
+##Model Selection##
+
+The accuracy and kappa metrics favor the **random forest** fit. To verify this and given that both models were run with the same seed, the caret function resamples is run and the results are illustrated below in a lattice box-and-whisker plot.
+
+In addition to having a lower out-of-sample error, the random forest fit produced higher accuracy and kappa values on all quantiles displayed in the summary statistic. 
+
+```{r selmod, fig.width=7, fig.height=4}
+resamps <- resamples(list(rf=RFfit,gbm=GBMfit))
+summary(resamps)
+bwplot(resamps,main="RandomForest vs Gradient Boosting)")
+
+```
+
+##Model Testing##  
+
+The random forest model is tested against the 20 test cases stored in pml_validate and is formatted as required by the project submission.
+
+```{r validate,eval=F}
+answer<-predict(RFfit,newdata=pml_validate)
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answer)
+
+```
+
+##References##
+
+[1] https://topepo.github.io/caret/featureselection.html  
+[2] https://topepo.github.io/caret/training.html  
+[3] https://www.quora.com/How-do-random-forests-and-boosted-decision-trees-compare  
